@@ -21,15 +21,20 @@
 #                                                                                               #
 #################################################################################################
 
-USEROPTIONS="--user=${MYSQL_USER} --password=${MYSQL_PASSWORD} --host=${MYSQL_HOST} --port=${MYSQL_PORT}"
+LOG_DIR=/root/logs
+LOG_NAME=$LOG_DIR/mariabackup_`date +%d_%m_%Y_%H%M%S`.log
 MYSQL_USER=backup
-MYSQL_PASSWORD='zRyaGJMs7oXyIId0'
+MYSQL_PASSWORD=YourPassword
 MYSQL_HOST=localhost
 MYSQL_PORT=3306
 BACKCMD=/usr/bin/mariabackup
 GZIPCMD=gzip
-BACKDIR=/backup
-KEEP=3
+DATE=`date +%d_%m_%Y`
+BACKUP_BASE_DIR=/root/mariabackup
+BACKUP_DIR=$BACKUP_BASE_DIR/daily/$DATE
+KEEP=7
+USEROPTIONS="--user=${MYSQL_USER} --password=${MYSQL_PASSWORD} --host=${MYSQL_HOST} --port=${MYSQL_PORT}"
+ARGS="--binlog-info"
 
 DAYOFWEEK=$(date +"%w")
 DAYOFMONTH=$(date +"%e")
@@ -47,7 +52,7 @@ echo "`date +%d-%m-%Y_%H:%M:%S` STARTED BACKUP"
 if [ ! -d "$BACKUP_DIR" ]; then
         mkdir -p $BACKUP_DIR
         if [ $? != 0 ]; then
-                echo "`date +%d-%m-%Y_%H:%M:%S` FAILED LOGICAL BACKUP: Unable to create $BACKUP_DIR"
+                echo "`date +%d-%m-%Y_%H:%M:%S` FAILED BACKUP: Unable to create $BACKUP_DIR"
                 exit 1
         fi
 else
@@ -80,24 +85,17 @@ fi
 
 # Backup
 
-$BACKCMD --backup $USEROPTIONS $ARGS --extra-lsndir=$TARGETDIR --stream=xbstream | $GZIPCMD > $TARGETDIR/backup.stream.gz
-
-# Housekeeping
-
 echo "" >> $LOG_NAME
-echo "`date +%d-%m-%Y_%H:%M:%S` | Compressing backup" >> $LOG_NAME
+echo "`date +%d-%m-%Y_%H:%M:%S` | Started backup" >> $LOG_NAME
 echo "" >> $LOG_NAME
 
 SECONDS=0
 
-cd $BACKUP_DIR && gzip $BACKUP_DIR/*.sql
+$BACKCMD --backup $USEROPTIONS $ARGS --extra-lsndir=$BACKUP_DIR --stream=xbstream | $GZIPCMD > $BACKUP_DIR/backup.stream.gz
 
 duration=$SECONDS
 
-echo "Total compression time: $(($duration / 60)) minutes and $(($duration % 60)) seconds" >> $LOG_NAME 2>&1
-echo "" >> $LOG_NAME
-echo "`date +%d-%m-%Y_%H:%M:%S` | Completed compression of backup" >> $LOG_NAME
-
+echo "Total backup time: $(($duration / 60)) minutes and $(($duration % 60)) seconds" >> $LOG_NAME 2>&1
 echo "" >> $LOG_NAME
 
 TOTAL_BACKUP_SIZE=$(du -h $BACKUP_DIR | awk '{print $1}')  >> $LOG_NAME 2>&1
@@ -112,7 +110,7 @@ echo "" >> $LOG_NAME
 
 SECONDS=0
 
-find $BACKUP_BASE_DIR/daily -mtime $DAILY_RETENTION -exec ls -ltr {} \;  -exec rm -rf {} \; >> $LOG_NAME
+find $BACKUP_DIR -mtime $KEEP -exec ls -ltr {} \; -exec rm -rf {} \; >> $LOG_NAME
 
 duration=$SECONDS
 
