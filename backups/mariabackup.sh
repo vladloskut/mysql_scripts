@@ -1,0 +1,135 @@
+#!/bin/sh
+
+#################################################################################################
+# Create a backup user                                                                          #
+#                                                                                               #
+# CREATE USER '<username>'@'localhost' IDENTIFIED BY '***';                                     #
+#                                                                                               #
+# MariaDB < 10.5:                                                                               #
+#                                                                                               #
+# GRANT RELOAD, PROCESS, LOCK TABLES, REPLICATION CLIENT ON *.* TO 'backup'@'localhost';        #
+# FLUSH PRIVILEGES;                                                                             #
+#                                                                                               #
+# MariaDB >= 10.5:                                                                              #
+#                                                                                               #
+# GRANT RELOAD, PROCESS, LOCK TABLES, BINLOG MONITOR ON *.* TO 'backup'@'localhost';            #
+# FLUSH PRIVILEGES;                                                                             #
+#                                                                                               #
+# Usage:                                                                                        #
+#                                                                                               #
+# bash mariabackup.sh                                                                           #
+#                                                                                               #
+#################################################################################################
+
+LOG_DIR=/root/dbi/log
+LOG_NAME=$LOG_DIR/mariabackup_`date +%d_%m_%Y_%H%M%S`.log
+MYSQL_USER=backup
+MYSQL_PASSWORD=
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+BACKCMD=/usr/bin/mariabackup
+GZIPCMD=gzip
+DATE=`date +%d_%m_%Y`
+BACKUP_CLEANUP_DIR=/backup/mariabackup/daily
+BACKUP_BASE_DIR=/backup/mariabackup
+BACKUP_DIR=$BACKUP_BASE_DIR/daily/$DATE
+CONF_BACKUP_DIR=$BACKUP_BASE_DIR/config/$DATE
+KEEP=7
+USEROPTIONS="--user=${MYSQL_USER} --password=${MYSQL_PASSWORD} --host=${MYSQL_HOST} --port=${MYSQL_PORT}"
+ARGS="--binlog-info"
+
+DAYOFWEEK=$(date +"%w")
+DAYOFMONTH=$(date +"%e")
+DAYOFYEAR=$(date +"%j")
+
+echo "DAYOFWEEK" : $DAYOFWEEK >> $LOG_NAME
+echo "DAYOFMONTH" : $DAYOFMONTH >> $LOG_NAME
+echo "DAYOFYEAR" : $DAYOFYEAR >> $LOG_NAME
+
+# Checks
+
+echo "" >> $LOG_NAME
+echo "`date +%d-%m-%Y_%H:%M:%S` STARTED BACKUP"
+
+if [ ! -d "$CONF_BACKUP_DIR" ]; then
+        mkdir -p $CONF_BACKUP_DIR
+        if [ $? != 0 ]; then
+                echo "`date +%d-%m-%Y_%H:%M:%S` FAILED BACKUP: Unable to create $CONF_BACKUP_DIR"
+                exit 1
+        fi
+else
+CONF_BACKUP_DIR=$(echo $CONF_BACKUP_DIR)_`date +%H%M%S`
+mkdir -p $CONF_BACKUP_DIR
+fi
+
+if [ ! -d "$BACKUP_DIR" ]; then
+        mkdir -p $BACKUP_DIR
+        if [ $? != 0 ]; then
+                echo "`date +%d-%m-%Y_%H:%M:%S` FAILED BACKUP: Unable to create $BACKUP_DIR"
+                exit 1
+        fi
+else
+BACKUP_DIR=$(echo $BACKUP_DIR)_`date +%H%M%S`
+mkdir -p $BACKUP_DIR
+fi
+
+touch $BACKUP_DIR/test.file
+
+if [ $? != 0 ]; then
+        echo "`date +%d-%m-%Y_%H:%M:%S` FAILED BACKUP: cannot write into $BACKUP_DIR"
+        exit 1
+else
+        rm $BACKUP_DIR/test.file
+fi
+
+if [ ! -d "$LOG_DIR" ]; then
+        mkdir -p $LOG_DIR
+        if [ $? != 0 ]; then
+                echo "`date +%d-%m-%Y_%H:%M:%S` FAILED BACKUP: Unable to create $LOG_DIR"
+                exit 1
+        fi
+fi
+
+if [ -z "`mysqladmin $USEROPTIONS status | grep 'Uptime'`" ]
+then
+  echo "HALTED: MySQL does not appear to be running."; echo
+  exit 1
+fi
+
+# Backup
+
+echo "" >> $LOG_NAME
+echo "`date +%d-%m-%Y_%H:%M:%S` | Started backup" >> $LOG_NAME
+echo "" >> $LOG_NAME
+
+SECONDS=0
+
+$BACKCMD --backup $USEROPTIONS $ARGS --extra-lsndir=$BACKUP_DIR --stream=xbstream | $GZIPCMD > $BACKUP_DIR/backup.stream.gz
+
+cp -vR /etc/mysql $CONF_BACKUP_DIR >> $LOG_NAME 2>&1
+
+duration=$SECONDS
+
+echo "Total backup time: $(($duration / 60)) minutes and $(($duration % 60)) seconds" >> $LOG_NAME 2>&1
+echo "" >> $LOG_NAME
+
+TOTAL_BACKUP_SIZE=$(du -h $BACKUP_DIR | awk '{print $1}')  >> $LOG_NAME 2>&1
+
+echo "Total backup size: $TOTAL_BACKUP_SIZE" >> $LOG_NAME 2>&1
+echo "" >> $LOG_NAME
+
+echo "`date +%d-%m-%Y_%H:%M:%S` COMPLETED BACKUP"
+
+echo "`date +%d-%m-%Y_%H:%M:%S` | Starting cleanup, the following files will be removed: " >> $LOG_NAME
+echo "" >> $LOG_NAME
+
+SECONDS=0
+
+find $BACKUP_DIR -mtime $KEEP -exec ls -ltr {} \; -exec rm -rf {} \; >> $LOG_NAME
+
+duration=$SECONDS
+
+echo "" >> $LOG_NAME
+echo "Total cleanup time: $(($duration / 60)) minutes and $(($duration % 60)) seconds" >> $LOG_NAME 2>&1
+echo "" >> $LOG_NAME
+echo "`date +%d-%m-%Y_%H:%M:%S` | Completed cleanup" >> $LOG_NAME
