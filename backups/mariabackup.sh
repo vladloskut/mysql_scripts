@@ -1,7 +1,8 @@
 #!/bin/sh
 
 #################################################################################################
-# Create a backup user                                                                          #
+#                                                                                               #
+# 1. Create a backup user and add privileges:                                                   #
 #                                                                                               #
 # CREATE USER '<username>'@'localhost' IDENTIFIED BY '***';                                     #
 #                                                                                               #
@@ -15,11 +16,15 @@
 # GRANT RELOAD, PROCESS, LOCK TABLES, BINLOG MONITOR ON *.* TO 'backup'@'localhost';            #
 # FLUSH PRIVILEGES;                                                                             #
 #                                                                                               #
+# 2. Adjust variables                                                                           #
+#                                                                                               #
 # Usage:                                                                                        #
 #                                                                                               #
 # bash mariabackup.sh                                                                           #
 #                                                                                               #
 #################################################################################################
+
+# Variables:
 
 LOG_DIR=/root/dbi/log
 LOG_NAME=$LOG_DIR/mariabackup_`date +%d_%m_%Y_%H%M%S`.log
