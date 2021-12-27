@@ -1,0 +1,51 @@
+On master server:
+
+#1 Create user, assign privileges
+
+CREATE USER 'replicator'@'replica_ip' IDENTIFIED WITH mysql_native_password BY '$password';
+GRANT REPLICATION SLAVE ON *.* TO 'replicator'@'replica_ip';
+FLUSH PRIVILEGES;
+
+#2 Get database backup
+
+mysqldump -u $user -p --opt --single-transaction --events --routines --triggers --databases $db > $db.sql
+
+#3 Send backup to replica server
+
+scp $db.sql $user@$replica_host:/tmp
+
+#4 Get current binary log file name and position
+
+SHOW MASTER STATUS;
+
++------------------+----------+--------------+------------------+-------------------+
+| File             | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++------------------+----------+--------------+------------------+-------------------+
+| mysql-bin.000001 |      899 | db           |                  |                   |
++------------------+----------+--------------+------------------+-------------------+
+
+On replica server:
+
+#1 Create empty database
+
+CREATE DATABASE $db;
+
+#2 Restore database
+
+mysql -u $user -p db < /tmp/$db.sql
+
+#3 Setup replica
+
+CHANGE MASTER TO MASTER_HOST='$master_ip', MASTER_USER='replicator', MASTER_PASSWORD='$password', MASTER_LOG_FILE = '$bin_log_file_name', MASTER_LOG_POS = $bin_log_position;
+
+#4 Change filters
+
+CHANGE REPLICATION FILTER 
+REPLICATE_DO_DB = (mt4_live01, mam_live01, reporting, rep_general),
+REPLICATE_IGNORE_DB = (mysql),
+REPLICATE_IGNORE_TABLE = (mysql.columns_priv, mysql.db, mysql.host, mysql.procs_priv, mysql.tables_priv, mysql.user, mysql.event, mt4_live01.ticks, mt4_live01.Logs, mt4_live01.loginfo, mt4_demo_rep.ticks, mt4_demo_rep.Logs, mt4_demo_rep.loginfo, reporting.tbl_zfx_spreads_day, reporting.tbl_zfx_spreads_hour, reporting.tbl_zfx_spreads_minute, reporting.tbl_spreads_mirror);
+
+#5 Start replica and check status
+
+START SLAVE;
+SHOW SLAVE STATUS\G
