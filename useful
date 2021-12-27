@@ -1,0 +1,38 @@
+# All DBs sizes:
+
+SELECT table_schema "DB Name",
+      ROUND(SUM(data_length + index_length) / 1024 / 1024, 1) "DB Size (MB)" 
+FROM information_schema.tables 
+GROUP BY table_schema;
+
+# One DB size:
+
+SELECT table_schema "DB Name",
+      ROUND(SUM(data_length + index_length) / 1024 / 1024, 1) "DB Size (MB)" 
+FROM information_schema.tables 
+WHERE table_schema = "$db_name"
+GROUP BY table_schema;
+
+# All tables sizes:
+
+SELECT table_name AS "Table",
+      ROUND(SUM(data_length + index_length) / 1024 / 1024), 1) AS "Table Size (MB)"
+FROM information_schema.tables
+WHERE table_schema = "$db_name"
+ORDER BY (data_length + index_length) DESC;
+
+# One table size:
+
+SELECT table_name AS "Table",
+      ROUND(SUM(data_length + index_length) / 1024 / 1024), 1) AS "Table Size (MB)"
+FROM information_schema.tables
+WHERE table_schema = "$db_name"
+AND table_name = "$db_name"
+ORDER BY (data_length + index_length) DESC;
+
+# Users list:
+
+SELECT user AS "Username", 
+      host As "Allowed from this address"
+FROM mysql.user
+ORDER BY user;
