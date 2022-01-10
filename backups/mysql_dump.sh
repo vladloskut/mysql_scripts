@@ -1,20 +1,21 @@
 #!/bin/bash
 
-#################################################################################################
-#                                                                                               #
-# 1. Create a backup user and add privileges:                                                   #
-#                                                                                               #
-# CREATE USER '<username>'@'localhost' IDENTIFIED BY '***';                                     #
-# GRANT RELOAD, PROCESS, EVENT, LOCK TABLES, REPLICATION CLIENT ON *.* TO 'backup'@'localhost'; #
-# FLUSH PRIVILEGES;                                                                             #
-#                                                                                               #
-# 2. Adjust variables                                                                           #
-#                                                                                               #
-# Usage:                                                                                        #
-#                                                                                               #
-# bash mysql_dump.sh                                                                           #
-#                                                                                               #
-#################################################################################################
+#################################################################################################################
+#                                                                                                               #
+# 1. Create a backup user and add privileges:                                                                   #
+#                                                                                                               #
+# CREATE USER 'backup_user'@'localhost' IDENTIFIED BY '***';                                                    #
+# GRANT USAGE ON *.* TO 'backup_user'@'localhost';                                                              #
+# GRANT SELECT, SHOW VIEW, RELOAD, PROCESS, EVENT, TRIGGER, REPLICATION CLIENT ON *.* TO 'backup'@'localhost';  #
+# FLUSH PRIVILEGES;                                                                                             #
+#                                                                                                               #
+# 2. Adjust variables                                                                                           #
+#                                                                                                               #
+# Usage:                                                                                                        #
+#                                                                                                               #
+# bash mysql_dump.sh                                                                                            #
+#                                                                                                               #
+#################################################################################################################
 
 # Variables
 
@@ -78,14 +79,14 @@ for db in $databases; do
         mysqldump --defaults-file=$DEFAULTS_FILE \
                   --opt \
                   --force \
-                  --lock-all-tables \
+                  --single-transaction \
                   --flush-logs \
                   --add-drop-database \
                   --add-drop-table \
                   --flush-privileges \
                   --allow-keywords \
-                  --hex-blob \
                   --events \
+                  --triggers \
                   --routines \
                   --databases $db > $BACKUP_DIR/`date +%Y%m%d`.$db.sql
         gzip $BACKUP_DIR/`date +%Y%m%d`.$db.sql
