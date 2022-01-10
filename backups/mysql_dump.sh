@@ -27,14 +27,6 @@ BACKUP_DIR=$BACKUP_BASE_DIR/daily/$DATE
 LOG_NAME=$LOG_DIR/mysql_dump_`date +%d_%m_%Y_%H%M%S`.log
 RETENTION=
 
-DAYOFWEEK=$(date +"%w")
-DAYOFMONTH=$(date +"%e")
-DAYOFYEAR=$(date +"%j")
-
-echo "DAYOFWEEK" : $DAYOFWEEK >> $LOG_NAME
-echo "DAYOFMONTH" : $DAYOFMONTH >> $LOG_NAME
-echo "DAYOFYEAR" : $DAYOFYEAR >> $LOG_NAME
-
 # Checks:
 
 echo "`date +%d-%m-%Y_%H:%M:%S` STARTED FULL BACKUP"
@@ -75,7 +67,7 @@ databases=`mysql --defaults-file=$DEFAULTS_FILE -e "SHOW DATABASES;" | tr -d "| 
 
 for db in $databases; do
     if [[ "$db" != "information_schema" ]] && [[ "$db" != _* ]] && [[ "$db" != performance_schema ]] ; then
-        echo "Dumping database: $db"
+        echo "Dumping database: $db" >> $LOG_NAME
         mysqldump --defaults-file=$DEFAULTS_FILE \
                   --opt \
                   --force \
