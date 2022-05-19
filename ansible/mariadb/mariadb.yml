@@ -1,0 +1,143 @@
+---
+- name: mariadb
+  hosts: all
+  gather_facts: true
+  become: true
+  vars:
+    mysql_root_password: "Password1"
+    rotate_user_password: "Password1"
+    data_dir: "/data/mariadb"
+  tasks:
+    - name: Put SELinux in permissive mode
+      selinux:
+        policy: targeted
+        state: permissive
+
+    - name: Set MariaDB repo from template
+      template:
+        src: MariaDB.repo
+        dest: /etc/yum.repos.d/MariaDB.repo
+
+    - name: Set my.cnf from template
+      template:
+        src: my.cnf.j2
+        dest: /etc/my.cnf
+
+    - name: Install packages
+      yum:
+        name:
+          - mariadb-server
+          - python3-PyMySQL
+          - python2-PyMySQL
+          - MariaDB-backup
+          - screen
+        state: latest
+
+    - name: Install Percona Toolkit dependence
+      yum:
+        name: /root/mariadb/percona-release-latest.noarch.rpm
+        state: present
+
+    - name: Install Percona Toolkit
+      yum:
+        name:
+          - percona-toolkit
+        state: latest
+
+    - name: Create directories for MariaDB
+      file:
+        path: "{{ item }}"
+        owner: mysql
+        group: mysql
+        mode: 0755
+        recurse: yes
+        state: directory
+      with_items:
+      - /var/run/mariadb
+      - /var/log/mariadb
+      - /var/log/mariadb/error_log_archive
+      - /var/log/mariadb/slow_log_archive
+      - "{{ data_dir }}"
+
+    - name: Create administrative directories
+      file:
+        path: "{{ item }}"
+        owner: root
+        group: root
+        mode: 0755
+        recurse: yes
+        state: directory
+      with_items:
+      - /root/dbi/
+      - /root/dbi/reports
+      - /root/dbi/log
+      - /root/dbi/scripts
+      - /root/dbi/config
+
+    - name: Implement log rotation
+      template:
+        src: "{{ item }}"
+        dest: /etc/logrotate.d/
+      with_items:
+      - mariadb_error
+      - mariadb_slow
+
+    - name: Initialize MariaDB
+      command: /bin/mysql_install_db --user=mysql --datadir=/data/mariadb/
+
+    - name: Start MariaDB
+      service:
+        name: mariadb
+        enabled: true
+        state: started
+
+    - name: Set root password for MariaDB
+      mysql_user:
+        check_implicit_admin: true
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        user: root
+        password: "{{ mysql_root_password }}"
+        host: localhost
+      no_log: yes
+
+    - name: Remove remote root access
+      mysql_user:
+        check_implicit_admin: true
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        user: root
+        host: "{{ ansible_fqdn }}"
+        state: absent
+      no_log: yes
+
+    - name: Create rotation user
+      mysql_user:
+       check_implicit_admin: true
+       login_user: root
+       login_password: "{{ mysql_root_password }}"
+       user: rotate_user
+       password: "{{ rotate_user_password }}"
+       host: localhost
+       priv: "*.*:RELOAD"
+       state: present
+      no_log: yes
+
+    - name: Remove all anonymous user accounts
+      mysql_user:
+       check_implicit_admin: true
+       login_user: root
+       login_password: "{{ mysql_root_password }}"
+       name: ''
+       host_all: yes
+       state: absent
+      no_log: yes
+
+    - name: Remove test database
+      mysql_db:
+        login_host: localhost
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_unix_socket: /var/run/mariadb/mysqld.sock
+        name: test
+        state: absent
