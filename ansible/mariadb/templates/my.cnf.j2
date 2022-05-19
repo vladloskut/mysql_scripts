@@ -1,0 +1,120 @@
+[client]
+
+socket=/var/run/mariadb/mysqld.sock
+
+[mysqld]
+
+#=======================#
+#       GENERAL         #
+#=======================#
+
+bind-address = 0.0.0.0
+read-only = 0
+event_scheduler = ON
+performance_schema = ON
+local_infile = 0
+symbolic-links = 0
+skip-symbolic-links
+skip-name-resolve
+datadir = /data/mysql
+open_files_limit=10000
+explicit_defaults_for_timestamp = 1
+
+#=======================#
+#       CHARS           #
+#=======================#
+
+#character-set-server=utf8mb4
+#collation-server=utf8mb4_general_ci
+#init_connect='SET collation_connection = utf8mb4_general_ci'
+#init-connect='SET NAMES utf8mb4'
+sql_mode='NO_ENGINE_SUBSTITUTION,NO_AUTO_CREATE_USER'
+
+#=======================#
+#       CONNECTION      #
+#=======================#
+
+max_connections                 = 100
+thread_cache_size               = 64
+max_prepared_stmt_count         = 5000
+socket                          = /var/run/mariadb/mysqld.sock
+pid-file                        = /var/run/mariadb/mysqld.pid
+wait_timeout                    = 3600
+interactive_timeout             = 3600
+
+#=======================#
+#       LOGGING         #
+#=======================#
+
+innodb_stats_on_metadata = OFF
+log_error = /var/log/mariadb/mariadb_error.log
+#log_error_verbosity = 3
+general-log = 0
+general_log_file = /var/log/mariadb/mariadb_general.log
+slow_query_log = 1
+long_query_time = 1
+log-slow-admin-statements = 1
+log-slow-slave-statements = 1
+log_queries_not_using_indexes = 0
+slow_query_log_file = /var/log/mariadb/mariadb_slow.log
+
+#===============================#
+# BINANRY LOGGING / REPLICATION #
+#===============================#
+
+server-id                        = 1
+#log_bin                         = /data/mariadb/binlog/mariadb-bin
+#log_bin_index                   = /data/mariadb/binlog/mariadb-bin.index
+#relay-log                       = /data/mariadb/relaylog/relay-bin
+#relay-log-index                 = /data/mariadb/relaylog/relay-bin.index
+#expire_logs_days                = 1
+#log_bin_trust_function_creators = 1
+#sync_binlog                     = 1
+#binlog_format                   = row
+#max_binlog_size                 = 1024M
+#binlog_cache_size               = 1M
+#gtid_mode = ON
+#enforce-gtid-consistency = true
+
+#===============================#
+# INNODB / MEMORY / PERFORMANCE #
+#===============================#
+
+transaction_isolation           = READ-COMMITTED
+
+innodb_flush_method             = O_DIRECT
+innodb-read-io-threads          = 64
+innodb-write-io-threads         = 64
+innodb_buffer_pool_instances    = 8
+innodb_data_file_path           = ibdata1:100M:autoextend
+innodb_log_buffer_size          = 16M
+innodb_log_file_size            = 128M
+innodb_log_files_in_group       = 2
+innodb_file_per_table           = 1
+innodb_flush_log_at_trx_commit  = 1
+innodb_purge_threads            = 4
+#innodb_flush_neighbors         = 0
+innodb_doublewrite              = 1
+
+table_definition_cache          = 400
+table_open_cache                = 4096
+
+query_cache_type                = 0
+query_cache_size                = 0
+
+# Base
+
+key_buffer_size                 = 16M
+query_cache_size                = 0
+innodb_buffer_pool_size         = 1G
+max_heap_table_size             = 16M
+#aria_pagecache_buffer_size     = 0
+
+# Per connection
+
+read_buffer_size                = 131072
+read_rnd_buffer_size            = 262144
+sort_buffer_size                = 1M
+join_buffer_size                = 1M
+thread_stack                    = 262144
+max_allowed_packet              = 16M
