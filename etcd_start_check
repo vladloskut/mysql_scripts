@@ -10,3 +10,17 @@ etcdctl --write-out=table --endpoints={MEMBER_1_IP}:2379,{MEMBER_2_IP}:2379,{MEM
 
 
 etcdctl --endpoints={MEMBER_1_IP}:2379,{MEMBER_2_IP}:2379,{MEMBER_3_IP}:2379 endpoint health
+
+{
+iptables --append INPUT --protocol tcp --source {MEMBER_1_IP} --jump ACCEPT
+iptables --append INPUT --protocol tcp --source {MEMBER_2_IP} --jump ACCEPT
+iptables --append INPUT --protocol tcp --source {MEMBER_3_IP} --jump ACCEPT
+}
+{
+iptables -A INPUT -p tcp --dport 2379 -j ACCEPT
+iptables -A INPUT -p tcp --dport 8008 -j ACCEPT
+iptables -A INPUT -p tcp --dport 5432 -j ACCEPT
+iptables -A INPUT -p tcp --dport 6432 -j ACCEPT
+iptables -A INPUT -p tcp --dport 2380 -j ACCEPT
+}
+iptables-save
