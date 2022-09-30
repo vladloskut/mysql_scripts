@@ -1,0 +1,12 @@
+{
+systemctl daemon-reload
+systemctl enable etcd
+systemctl start etcd
+systemctl -l status etcd --no-pager
+ss -tunelp | grep 2379
+}
+
+etcdctl --write-out=table --endpoints={MEMBER_1_IP}:2379,{MEMBER_2_IP}:2379,{MEMBER_3_IP}:2379 endpoint status
+
+
+etcdctl --endpoints={MEMBER_1_IP}:2379,{MEMBER_2_IP}:2379,{MEMBER_3_IP}:2379 endpoint health
